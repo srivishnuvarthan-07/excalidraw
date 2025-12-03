@@ -1119,16 +1119,16 @@ export function getFreedrawOutlinePoints(element: ExcalidrawFreeDrawElement) {
     last: true,
   };
 
-  // return getStroke(
-  //   [
-  //     [0, 0],
-  //     [30, -30],
-  //     [60, -30],
-  //   ],
-  //   options,
-  //   element,
-  // );
-  return getStroke(inputPoints, options, element) as [number, number][];
+  return getStroke(
+    [
+      [0, 0],
+      [30, -30],
+      [60, -30],
+    ],
+    options,
+    element,
+  );
+  //return getStroke(inputPoints, options, element) as [number, number][];
 }
 
 function med(A: number[], B: number[]) {

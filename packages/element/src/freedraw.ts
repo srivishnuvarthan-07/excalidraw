@@ -1,10 +1,12 @@
 import {
   type GlobalPoint,
+  Line,
   type LineSegment,
   lineSegment,
   lineSegmentIntersectionPoints,
   type LocalPoint,
   pointDistance,
+  pointDistanceSq,
   pointFrom,
   pointFromVector,
   vectorAntiNormal,
@@ -149,9 +151,6 @@ function generateSegments(
     segments[idx - 2][1],
     pointFrom<LocalPoint>(input[0][0], input[0][1]),
   );
-  // debugDrawPoint(
-  //   pointFrom<LocalPoint>(element.x + segments[0], input[0][1]),
-  // );
   segments[idx++] = lineSegment(
     pointFrom<LocalPoint>(input[0][0], input[0][1]),
     segments[0][0],
@@ -167,25 +166,51 @@ export function getStroke(
   options: any,
   element: ExcalidrawFreeDrawElement,
 ): LocalPoint[] {
-  const segments = generateSegments(input, element);
+  const segments: (LineSegment<LocalPoint> | undefined)[] = generateSegments(
+    input,
+    element,
+  );
 
-  // for (let j = 0; j < segments.length; j++) {
-  //   segments.forEach((s, i) => {
-  //     if (j !== i && j + 1 !== i && j !== i + 1) {
-  //       const intersection = lineSegmentIntersectionPoints(segments[j], s);
-  //       if (intersection?.length) {
-  //         console.log(
-  //           "intersection",
-  //           j,
-  //           i,
-  //           pointDistance(segments[j][0], segments[j][1]),
-  //           pointDistance(s[0], s[1]),
-  //           //lineSegmentIntersectionPoints(segments[j], s),
-  //         );
-  //       }
-  //     }
-  //   });
-  // }
+  const MIN_DIST_SQ = 1 ** 2;
+  for (let j = 0; j < segments.length; j++) {
+    for (let i = j + 1; i < segments.length; i++) {
+      const a = segments[j];
+      const b = segments[i];
+      if (!a || !b) {
+        continue;
+      }
+
+      const intersection = lineSegmentIntersectionPoints(a, b);
+
+      if (
+        intersection &&
+        pointDistanceSq(a[0], intersection) > MIN_DIST_SQ &&
+        pointDistanceSq(a[1], intersection) > MIN_DIST_SQ
+      ) {
+        debugDrawPoint(
+          pointFrom<GlobalPoint>(
+            element.x + intersection[0],
+            element.y + intersection[1],
+          ),
+          { color: "#FF00FF", permanent: true },
+        );
+        console.log("intersection", j, i, intersection);
+      }
+      // if (j !== i && j + 1 !== i && j !== i + 1) {
+      //   const intersection = lineSegmentIntersectionPoints(segments[j], s);
+      //   if (intersection?.length) {
+      //     console.log(
+      //       "intersection",
+      //       j,
+      //       i,
+      //       pointDistance(segments[j][0], segments[j][1]),
+      //       pointDistance(s[0], s[1]),
+      //       //lineSegmentIntersectionPoints(segments[j], s),
+      //     );
+      //   }
+      // }
+    }
+  }
 
   // for (let i = 0; i < segments.length; i++) {
   //   if (i < 2 || i > segments.length - 3) {
@@ -213,6 +238,16 @@ export function getStroke(
   //   }
   // }
 
+  debugSegments(segments, input, element);
+
+  return [segments[0][0], ...segments.map((s) => s[1])];
+}
+
+function debugSegments(
+  segments: LineSegment<LocalPoint>[],
+  input: readonly [number, number, number][] | readonly [number, number][],
+  element: ExcalidrawFreeDrawElement,
+): void {
   const colors = [
     "#FF0000",
     "#00FF00",
@@ -253,6 +288,4 @@ export function getStroke(
       { color: "#000000", permanent: true },
     );
   });
-
-  return [segments[0][0], ...segments.map((s) => s[1])];
 }
