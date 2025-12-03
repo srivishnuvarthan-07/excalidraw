@@ -63,8 +63,8 @@ import {
 } from "./typeChecks";
 import { getContainingFrame } from "./frame";
 import { getCornerRadius } from "./utils";
-
 import { ShapeCache } from "./shape";
+import { getStroke } from "./freedraw";
 
 import type {
   ExcalidrawElement,
@@ -80,7 +80,6 @@ import type {
 
 import type { StrokeOptions } from "perfect-freehand";
 import type { RoughCanvas } from "roughjs/bin/canvas";
-import { getStroke } from "./freedraw";
 
 // using a stronger invert (100% vs our regular 93%) and saturate
 // as a temp hack to make images in dark theme look closer to original
@@ -1119,16 +1118,16 @@ export function getFreedrawOutlinePoints(element: ExcalidrawFreeDrawElement) {
     last: true,
   };
 
-  return getStroke(
-    [
-      [0, 0],
-      [30, -30],
-      [60, -30],
-    ],
-    options,
-    element,
-  );
-  //return getStroke(inputPoints, options, element) as [number, number][];
+  // return getStroke(
+  //   [
+  //     [0, 0],
+  //     [30, -30],
+  //     [60, -30],
+  //   ],
+  //   options,
+  //   element,
+  // );
+  return getStroke(inputPoints, options, element) as [number, number][];
 }
 
 function med(A: number[], B: number[]) {

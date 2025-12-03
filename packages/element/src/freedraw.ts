@@ -1,11 +1,9 @@
 import {
   type GlobalPoint,
-  Line,
   type LineSegment,
   lineSegment,
   lineSegmentIntersectionPoints,
   type LocalPoint,
-  pointDistance,
   pointDistanceSq,
   pointFrom,
   pointFromVector,
@@ -15,10 +13,9 @@ import {
   vectorNormalize,
   vectorScale,
 } from "@excalidraw/math";
+import { debugDrawLine } from "@excalidraw/common";
 
 import { type ExcalidrawFreeDrawElement } from "./types";
-import { doLineSegmentsIntersect } from "@excalidraw/utils";
-import { debugDrawLine, debugDrawPoint, distance } from "@excalidraw/common";
 
 const offset = (
   x: number,
@@ -40,27 +37,28 @@ function generateSegments(
     | readonly [x: number, y: number, pressure: number][]
     | readonly [x: number, y: number][],
   element: ExcalidrawFreeDrawElement,
+  pressureMultiplier: number = 1,
+  minimumPressure: number = 1,
 ): LineSegment<LocalPoint>[] {
   if (input.length < 3) {
     return [];
   }
 
   let idx = 0;
-
-  //const segments: LineSegment<LocalPoint>[] = [];
   const segments = Array(input.length * 4 - 4);
+
   segments[idx++] = lineSegment(
     offset(
       input[1][0],
       input[1][1],
-      input[1][2] ?? 5,
+      Math.max((input[1][2] ?? 5) * pressureMultiplier, minimumPressure),
       "left",
       pointFrom<LocalPoint>(input[0][0], input[0][1]),
     ),
     offset(
       input[0][0],
       input[0][1],
-      input[0][2] ?? 5,
+      Math.max((input[1][2] ?? 5) * pressureMultiplier, minimumPressure),
       "right",
       pointFrom<LocalPoint>(input[1][0], input[1][1]),
     ),
@@ -71,14 +69,14 @@ function generateSegments(
     const b = offset(
       input[i][0],
       input[i][1],
-      input[i][2] ?? 5,
+      Math.max((input[1][2] ?? 5) * pressureMultiplier, minimumPressure),
       "left",
       pointFrom<LocalPoint>(input[i - 1][0], input[i - 1][1]),
     );
     const c = offset(
       input[i - 1][0],
       input[i - 1][1],
-      input[i - 1][2] ?? 5,
+      Math.max((input[1][2] ?? 5) * pressureMultiplier, minimumPressure),
       "right",
       pointFrom<LocalPoint>(input[i][0], input[i][1]),
     );
@@ -104,7 +102,7 @@ function generateSegments(
     offset(
       input[input.length - 2][0],
       input[input.length - 2][1],
-      input[input.length - 2][2] ?? 5,
+      Math.max((input[1][2] ?? 5) * pressureMultiplier, minimumPressure),
       "left",
       pointFrom<LocalPoint>(
         input[input.length - 1][0],
@@ -118,14 +116,14 @@ function generateSegments(
     const b = offset(
       input[i + 1][0],
       input[i + 1][1],
-      input[i + 1][2] ?? 5,
+      Math.max((input[1][2] ?? 5) * pressureMultiplier, minimumPressure),
       "right",
       pointFrom<LocalPoint>(input[i][0], input[i][1]),
     );
     const c = offset(
       input[i - 1][0],
       input[i - 1][1],
-      input[i - 1][2] ?? 5,
+      Math.max((input[1][2] ?? 5) * pressureMultiplier, minimumPressure),
       "left",
       pointFrom<LocalPoint>(input[i][0], input[i][1]),
     );
@@ -140,7 +138,7 @@ function generateSegments(
     offset(
       input[1][0],
       input[1][1],
-      input[1][2] ?? 5,
+      Math.max((input[1][2] ?? 5) * pressureMultiplier, minimumPressure),
       "right",
       pointFrom<LocalPoint>(input[0][0], input[0][1]),
     ),
@@ -171,7 +169,7 @@ export function getStroke(
     element,
   );
 
-  const MIN_DIST_SQ = 1 ** 2;
+  const MIN_DIST_SQ = 0.2 ** 2;
   for (let j = 0; j < segments.length; j++) {
     for (let i = j + 1; i < segments.length; i++) {
       const a = segments[j];
@@ -185,62 +183,28 @@ export function getStroke(
       if (
         intersection &&
         pointDistanceSq(a[0], intersection) > MIN_DIST_SQ &&
-        pointDistanceSq(a[1], intersection) > MIN_DIST_SQ
+        pointDistanceSq(a[1], intersection) > MIN_DIST_SQ &&
+        i === j + 2
       ) {
-        debugDrawPoint(
-          pointFrom<GlobalPoint>(
-            element.x + intersection[0],
-            element.y + intersection[1],
-          ),
-          { color: "#FF00FF", permanent: true },
-        );
-        console.log("intersection", j, i, intersection);
+        a[1] = intersection;
+        segments[j + 1] = undefined;
+        b[0] = intersection;
       }
-      // if (j !== i && j + 1 !== i && j !== i + 1) {
-      //   const intersection = lineSegmentIntersectionPoints(segments[j], s);
-      //   if (intersection?.length) {
-      //     console.log(
-      //       "intersection",
-      //       j,
-      //       i,
-      //       pointDistance(segments[j][0], segments[j][1]),
-      //       pointDistance(s[0], s[1]),
-      //       //lineSegmentIntersectionPoints(segments[j], s),
-      //     );
-      //   }
-      // }
     }
   }
 
-  // for (let i = 0; i < segments.length; i++) {
-  //   if (i < 2 || i > segments.length - 3) {
-  //     continue;
-  //   }
+  debugSegments(
+    segments.filter((s): s is LineSegment<LocalPoint> => !!s),
+    input,
+    element,
+  );
 
-  //   const intersection1 = lineSegmentIntersectionPoints(
-  //     segments[i - 2],
-  //     segments[i],
-  //   );
-  //   // if (intersection1) {
-  //   //   segments[i][0] = intersection1;
-  //   // }
-
-  //   const intersection2 = lineSegmentIntersectionPoints(
-  //     segments[i + 2],
-  //     segments[i],
-  //   );
-  //   // if (intersection2) {
-  //   //   segments[i][1] = intersection2;
-  //   // }
-
-  //   if (!!intersection1 !== !!intersection2) {
-  //     console.log("??", intersection1, intersection2);
-  //   }
-  // }
-
-  debugSegments(segments, input, element);
-
-  return [segments[0][0], ...segments.map((s) => s[1])];
+  return [
+    ...(segments[0] ? [segments[0][0]] : []),
+    ...segments
+      .filter((s): s is LineSegment<LocalPoint> => !!s)
+      .map((s) => s[1]),
+  ];
 }
 
 function debugSegments(
