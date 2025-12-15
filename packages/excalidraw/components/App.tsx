@@ -9518,17 +9518,39 @@ class App extends React.Component<AppProps, AppState> {
         }
 
         if (newElement.type === "freedraw") {
-          const points = newElement.points;
-          const dx = pointerCoords.x - newElement.x;
-          const dy = pointerCoords.y - newElement.y;
-          const pressures = newElement.simulatePressure
-            ? newElement.pressures
-            : [...newElement.pressures, event.pressure];
+          const points = Array.from(newElement.points);
+          const pressures = Array.from(newElement.pressures);
+
+          const coalescedEvents = event.getCoalescedEvents?.();
+          if (!coalescedEvents || coalescedEvents.length === 0) {
+            const dx = pointerCoords.x - newElement.x;
+            const dy = pointerCoords.y - newElement.y;
+
+            points.push(pointFrom<LocalPoint>(dx, dy));
+
+            if (!newElement.simulatePressure) {
+              pressures.push(event.pressure);
+            }
+          } else {
+            for (const coalescedEvent of coalescedEvents) {
+              const coalescedPointerCoords = viewportCoordsToSceneCoords(
+                coalescedEvent,
+                this.state,
+              );
+              const dx = coalescedPointerCoords.x - newElement.x;
+              const dy = coalescedPointerCoords.y - newElement.y;
+              points.push(pointFrom<LocalPoint>(dx, dy));
+
+              if (!newElement.simulatePressure) {
+                pressures.push(coalescedEvent.pressure);
+              }
+            }
+          }
 
           this.scene.mutateElement(
             newElement,
             {
-              points: [...points, pointFrom<LocalPoint>(dx, dy)],
+              points,
               pressures,
             },
             {
