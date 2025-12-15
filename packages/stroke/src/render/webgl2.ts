@@ -91,6 +91,7 @@ const getSharedRenderer = (): SharedWebGL2Renderer | null => {
   }
 
   if (typeof OffscreenCanvas === "undefined") {
+    console.error("webgl2: OffscreenCanvas not supported");
     return null;
   }
 
@@ -114,6 +115,7 @@ const getSharedRenderer = (): SharedWebGL2Renderer | null => {
     const uBoundsOrigin = gl.getUniformLocation(program, "uBoundsOrigin");
 
     if (!uResolution || !uBoundsOrigin) {
+      console.error("webgl2: failed to get uniform locations");
       gl.deleteProgram(program);
       return null;
     }
@@ -127,9 +129,11 @@ const getSharedRenderer = (): SharedWebGL2Renderer | null => {
     const vbo = gl.createBuffer();
     if (!vao || !vbo) {
       if (vao) {
+        console.error("webgl2: failed to create vertex array");
         gl.deleteVertexArray(vao);
       }
       if (vbo) {
+        console.error("webgl2: failed to create buffer");
         gl.deleteBuffer(vbo);
       }
       gl.deleteProgram(program);
@@ -208,11 +212,13 @@ export const renderStrokeRecordWebGL2 = (
   }
   const renderer = getSharedRenderer();
   if (!renderer) {
+    console.error("webgl2: failed to get renderer");
     return null;
   }
 
   const { gl } = renderer;
   if (gl.isContextLost()) {
+    console.error("webgl2: context lost");
     sharedRenderer = null;
     return null;
   }
