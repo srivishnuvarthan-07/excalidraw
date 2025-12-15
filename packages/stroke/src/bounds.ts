@@ -1,5 +1,3 @@
-import type { LocalPoint } from "@excalidraw/math";
-
 import type { RenderedBounds, StrokeSegment } from "./types";
 
 type BoundsAccum = {
@@ -38,7 +36,20 @@ export const accumulateSegmentBounds = (b: BoundsAccum, seg: StrokeSegment) => {
   const bx = seg.b[0];
   const by = seg.b[1];
 
-  const extent = Math.max(seg.ra, seg.rb) + seg.softnessPx;
+  const maxR = Math.max(seg.ra, seg.rb);
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len = Math.hypot(dx, dy);
+  const dr = Math.abs(seg.rb - seg.ra);
+
+  // Tapered capsules can extend beyond max(radius) due to the external tangents.
+  // Use a safe analytic bound that matches the SDF used by both renderers.
+  let extent = maxR + seg.softnessPx;
+  if (len > 1e-5 && dr > 0 && dr < len) {
+    const k = dr / len;
+    const c = Math.sqrt(1 - k * k);
+    extent = maxR / c + seg.softnessPx;
+  }
 
   const xMin = Math.min(ax, bx) - extent;
   const yMin = Math.min(ay, by) - extent;
@@ -46,16 +57,6 @@ export const accumulateSegmentBounds = (b: BoundsAccum, seg: StrokeSegment) => {
   const yMax = Math.max(ay, by) + extent;
 
   expand(b, xMin, yMin, xMax, yMax);
-};
-
-export const accumulatePointBounds = (
-  b: BoundsAccum,
-  p: LocalPoint,
-  radiusPx: number,
-  softnessPx: number,
-) => {
-  const extent = radiusPx + softnessPx;
-  expand(b, p[0] - extent, p[1] - extent, p[0] + extent, p[1] + extent);
 };
 
 /**

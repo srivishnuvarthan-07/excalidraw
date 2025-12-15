@@ -13,7 +13,7 @@ import {
   vectorNormalize,
   vectorScale,
 } from "@excalidraw/math";
-import { debugDrawLine, hexToRgba } from "@excalidraw/common";
+import { debugDrawLine, debugDrawPoints, hexToRgba } from "@excalidraw/common";
 
 import {
   buildStrokeRecord,
@@ -25,6 +25,7 @@ import {
 } from "@excalidraw/stroke";
 
 import type { ExcalidrawFreeDrawElement } from "./types";
+import { getFreedrawAsSegments } from "./renderElement";
 
 const offset = (
   x: number,
@@ -286,7 +287,7 @@ export const buildFreedrawStrokeRecord = (
   const pressures = element.pressures;
 
   for (let i = 0; i < points.length; i++) {
-    const p = element.simulatePressure ? 1 : pressures[i] ?? 0.5;
+    const p = element.simulatePressure ? 1 : pressures[i] ?? 0.5; // TODO: Implement simulated pressure curve
     samples.push({
       x: points[i][0],
       y: points[i][1],
@@ -326,28 +327,66 @@ export const drawFreedrawStrokeToCanvas2D = (
   const t = context.getTransform();
   const scaleX = Math.hypot(t.a, t.b);
   const scaleY = Math.hypot(t.c, t.d);
-  const dpr = Math.max(scaleX, scaleY);
+  const zoom = Math.max(scaleX, scaleY);
 
   const record = buildFreedrawStrokeRecord(element, {
-    dpr,
+    dpr: zoom,
     coordSpace: "cssPx",
     applyElementOpacity: false,
+    smoothing: 0.85,
+    softnessPx: 1.5,
   });
 
-  debugSegments(
-    record.segments.map((s) => [s.a, s.b] as LineSegment<LocalPoint>),
-    [], //element.points,
-    element,
-  );
+  // debugDrawPoints(
+  //   {
+  //     points: element.points.slice(10, 20),
+  //     x: element.x,
+  //     y: element.y,
+  //   },
+  //   {
+  //     permanent: true,
+  //   },
+  // );
+
+  // debugSegments(
+  //   record.segments.map((s) => [s.a, s.b] as LineSegment<LocalPoint>),
+  //   [], //element.points,
+  //   element,
+  // );
+
+  const colors = [
+    "#FF0000",
+    "#00FF00",
+    "#0000FF",
+    "#FFFF00",
+    "#00FFFF",
+    "#FF00FF",
+    //"#C0C0C0",
+    //"#800000",
+    // "#808000",
+    // "#008000",
+    // "#800080",
+    // "#008080",
+    // "#000080",
+  ];
 
   const result = strokeToCanvasCompatible(record);
 
+  // let i = 0;
+  // const result = strokeToCanvasCompatible({
+  //   ...record,
+  //   segments: record.segments.map((segment) => ({
+  //     ...segment,
+  //     color: hexToRgba(colors[i++ % colors.length], element.opacity),
+  //   })),
+  // });
+
   const bounds = result.bounds;
 
-  const dstX = bounds.xMin / dpr;
-  const dstY = bounds.yMin / dpr;
-  const dstW = bounds.width / dpr;
-  const dstH = bounds.height / dpr;
+  const dstX = bounds.xMin / zoom;
+  const dstY = bounds.yMin / zoom;
+  const dstW = bounds.width / zoom;
+  const dstH = bounds.height / zoom;
 
   if (!result.image || dstW <= 0 || dstH <= 0) {
     return;
@@ -380,15 +419,6 @@ export const drawFreedrawStrokeToCanvas2D = (
     if (ctx) {
       ctx.putImageData(imgData, 0, 0);
       context.drawImage(c, dstX, dstY, dstW, dstH);
-      return;
     }
   }
-
-  // Fallback (no OffscreenCanvas): putImageData ignores transforms.
-  // This path is only used on older platforms.
-  context.putImageData(
-    imgData,
-    Math.round(bounds.xMin),
-    Math.round(bounds.yMin),
-  );
 };

@@ -26,24 +26,64 @@ const distanceToTaperedSegment = (
 
   const abx = bx - ax;
   const aby = by - ay;
+  const len = Math.hypot(abx, aby);
+  if (len <= 1e-5) {
+    const radius = Math.max(seg.ra, seg.rb);
+    return { dist: Math.hypot(p[0] - ax, p[1] - ay) - radius, u: 0, radius };
+  }
+
+  // Axis-aligned coordinates: y along AB, x perpendicular (absolute).
+  const ex = abx / len;
+  const ey = aby / len;
+  const nx = -ey;
+  const ny = ex;
+
   const apx = p[0] - ax;
   const apy = p[1] - ay;
+  const y = apx * ex + apy * ey;
+  const x = Math.abs(apx * nx + apy * ny);
 
-  const lenSq = abx * abx + aby * aby;
-  const u =
-    lenSq > 0
-      ? clamp(vectorDot(vector(apx, apy), vector(abx, aby)) / lenSq, 0, 1)
-      : 0;
+  const dr = seg.rb - seg.ra;
+  const adr = Math.abs(dr);
 
-  const cx = ax + abx * u;
-  const cy = ay + aby * u;
+  // If one cap contains the other along AB, the union degenerates to the larger cap.
+  if (adr >= len) {
+    if (dr >= 0) {
+      return {
+        dist: Math.hypot(p[0] - bx, p[1] - by) - seg.rb,
+        u: 1,
+        radius: seg.rb,
+      };
+    }
+    return {
+      dist: Math.hypot(p[0] - ax, p[1] - ay) - seg.ra,
+      u: 0,
+      radius: seg.ra,
+    };
+  }
 
+  const k = dr / len;
+  const c = Math.sqrt(1 - k * k);
+
+  const t = y + (k * x) / c;
+  if (t <= 0) {
+    return {
+      dist: Math.hypot(p[0] - ax, p[1] - ay) - seg.ra,
+      u: 0,
+      radius: seg.ra,
+    };
+  }
+  if (t >= len) {
+    return {
+      dist: Math.hypot(p[0] - bx, p[1] - by) - seg.rb,
+      u: 1,
+      radius: seg.rb,
+    };
+  }
+
+  const u = clamp(t / len, 0, 1);
   const radius = seg.ra + (seg.rb - seg.ra) * u;
-
-  const dx = p[0] - cx;
-  const dy = p[1] - cy;
-  const dist = Math.hypot(dx, dy) - radius;
-
+  const dist = x * c - seg.ra - k * y;
   return { dist, u, radius };
 };
 
@@ -51,7 +91,23 @@ const segmentToBoundsLocal = (
   seg: StrokeSegment,
   bounds: RenderedBounds,
 ): { x0: number; y0: number; x1: number; y1: number } => {
-  const extent = Math.ceil(Math.max(seg.ra, seg.rb) + seg.softnessPx);
+  const ax = seg.a[0];
+  const ay = seg.a[1];
+  const bx = seg.b[0];
+  const by = seg.b[1];
+
+  const maxR = Math.max(seg.ra, seg.rb);
+  const len = Math.hypot(bx - ax, by - ay);
+  const dr = Math.abs(seg.rb - seg.ra);
+
+  let extent = maxR + seg.softnessPx;
+  if (len > 1e-5 && dr > 0 && dr < len) {
+    const k = dr / len;
+    const c = Math.sqrt(1 - k * k);
+    extent = maxR / c + seg.softnessPx;
+  }
+  extent = Math.ceil(extent);
+
   const xMin = Math.floor(Math.min(seg.a[0], seg.b[0]) - extent);
   const yMin = Math.floor(Math.min(seg.a[1], seg.b[1]) - extent);
   const xMax = Math.ceil(Math.max(seg.a[0], seg.b[0]) + extent);

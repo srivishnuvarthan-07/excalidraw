@@ -100,3 +100,36 @@ describe("stroke bounds", () => {
     }
   });
 });
+
+describe("stroke sampling", () => {
+  it("preserves dense input points (no dragging last segment)", () => {
+    const pts: LocalPoint[] = [];
+    const pressures: number[] = [];
+
+    for (let i = 0; i < 100; i++) {
+      pts.push(pointFrom<LocalPoint>(i * 0.01, 0));
+      pressures.push(1);
+    }
+
+    const el = newFreeDrawElement({
+      type: "freedraw",
+      x: 0,
+      y: 0,
+      strokeColor: "#000000",
+      opacity: 100,
+      strokeWidth: 2,
+      simulatePressure: false,
+      points: pts,
+      pressures,
+    });
+
+    const record = buildFreedrawStrokeRecord(el, {
+      dpr: 2,
+      coordSpace: "cssPx",
+      softnessPx: 1,
+      smoothing: 0,
+    });
+
+    expect(record.segments.length).toBe(pts.length - 1);
+  });
+});

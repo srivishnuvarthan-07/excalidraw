@@ -20,7 +20,19 @@ out float vSoft;
 out vec4 vColor;
 
 void main() {
+  vec2 ab = aB - aA;
+  float len = length(ab);
+  float dr = abs(aRb - aRa);
   float extent = max(aRa, aRb) + aSoft;
+
+  // Tapered capsules can extend beyond max(radius) due to the external tangents.
+  // Ensure the instance quad is large enough to cover the full "belt" region.
+  if (len > 1e-5f && dr > 0.0f && dr < len) {
+    float k = dr / len;
+    float c = sqrt(1.0f - k * k); // in (0,1)
+    extent = (max(aRa, aRb) / c) + aSoft;
+  }
+
   vec2 minP = min(aA, aB) - vec2(extent);
   vec2 maxP = max(aA, aB) + vec2(extent);
 

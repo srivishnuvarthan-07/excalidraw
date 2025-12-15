@@ -24,13 +24,52 @@ float smoothstepRange(float edge0, float edge1, float x) {
   return smoothstep01(t);
 }
 
+// Signed distance to a tapered capsule (union of disks along segment AB with
+// linearly varying radius).
+//
+// This is equivalent to a 2D "rounded cone": two circular caps joined by the
+// external tangents ("taut belt" around two drums).
+float sdTaperedCapsule(vec2 p, vec2 a, vec2 b, float ra, float rb) {
+  vec2 ba = b - a;
+  float len = length(ba);
+  if (len <= 1e-5f) {
+    return length(p - a) - max(ra, rb);
+  }
+
+  // Axis-aligned coordinates: y along AB, x perpendicular (absolute).
+  vec2 e = ba / len;
+  vec2 n = vec2(-e.y, e.x);
+  vec2 pa = p - a;
+  float y = dot(pa, e);
+  float x = abs(dot(pa, n));
+
+  float dr = rb - ra;
+  float adr = abs(dr);
+
+  // If one cap contains the other along AB, the union degenerates to the larger cap.
+  if (adr >= len) {
+    return (dr >= 0.0f) ? (length(p - b) - rb) : (length(p - a) - ra);
+  }
+
+  float k = dr / len;
+  float c = sqrt(1.0f - k * k); // in (0,1]
+
+  // Optimal axial coordinate for the cone side (unclamped).
+  float t = y + (k * x) / c;
+
+  if (t <= 0.0f) {
+    return length(p - a) - ra;
+  }
+  if (t >= len) {
+    return length(p - b) - rb;
+  }
+
+  // Distance to cone side: x*c = ra + k*y at the boundary.
+  return x * c - ra - k * y;
+}
+
 void main() {
-  vec2 ab = vB - vA;
-  float lenSq = dot(ab, ab);
-  float u = (lenSq > 0.0f) ? clamp01(dot(vP - vA, ab) / lenSq) : 0.0f;
-  vec2 c = vA + ab * u;
-  float r = mix(vRa, vRb, u);
-  float d = length(vP - c) - r;
+  float d = sdTaperedCapsule(vP, vA, vB, vRa, vRb);
 
   float coverage = 0.0f;
   if(d <= 0.0f) {

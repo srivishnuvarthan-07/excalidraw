@@ -77,10 +77,14 @@ const smoothSamples = (samples: readonly RawSample[], smoothing: number) => {
 };
 
 /**
- * Distance-domain resampling. We adapt spacing based on the current radius
- * to prevent holes under sharp turns and rapid pressure changes.
+ * Densify the sample stream without discarding input samples.
+ *
+ * We insert additional samples when the distance between consecutive samples
+ * is large relative to the current radius to avoid visual holes, but we never
+ * replace the original point stream. Preserving the stream prevents the
+ * "dragged last segment" artifact during slow/stationary input.
  */
-const resample = (
+const densify = (
   samples: readonly RawSample[],
   cfg: StrokeEngineConfig,
 ): RawSample[] => {
@@ -92,11 +96,15 @@ const resample = (
     (cfg.sizeCssPx * (cfg.inputCoordSpace === "cssPx" ? cfg.dpr : 1)) / 2;
 
   const out: RawSample[] = [samples[0]];
-  let prev = samples[0];
-  let carry = 0;
+
+  // Conservative: spacing <= 0.5 * radius, and at least 0.75px.
+  // Guard against pathological gaps to avoid unbounded allocations.
+  const MAX_INSERTED_PER_SEGMENT = 4096;
 
   for (let i = 1; i < samples.length; i++) {
+    const prev = samples[i - 1];
     const next = samples[i];
+
     const ax = prev.x;
     const ay = prev.y;
     const bx = next.x;
@@ -105,38 +113,32 @@ const resample = (
     const dx = bx - ax;
     const dy = by - ay;
     const segLen = Math.hypot(dx, dy);
+
     if (segLen === 0) {
-      prev = next;
+      out.push(next);
       continue;
     }
 
-    // conservative: spacing <= 0.5 * radius, and at least 0.75px
     const radiusHere = Math.max(
       baseRadiusPx * Math.max(next.p, cfg.minPressure),
       0.5,
     );
-    const step = Math.max(0.75, radiusHere * 0.5);
+    const minStep = Math.max(0.75, radiusHere * 0.5);
 
-    let d = carry;
-    while (d + step <= segLen) {
-      const t = (d + step) / segLen;
+    let inserted = 0;
+    for (let d = minStep; d < segLen && inserted < MAX_INSERTED_PER_SEGMENT; ) {
+      const t = d / segLen;
       out.push({
         x: ax + dx * t,
         y: ay + dy * t,
         t: lerp(prev.t, next.t, t),
         p: lerp(prev.p, next.p, t),
       });
-      d += step;
+      d += minStep;
+      inserted++;
     }
 
-    carry = segLen - d;
-    prev = next;
-  }
-
-  const last = samples[samples.length - 1];
-  const lastOut = out[out.length - 1];
-  if (lastOut.x !== last.x || lastOut.y !== last.y) {
-    out.push(last);
+    out.push(next);
   }
 
   return out;
@@ -168,8 +170,11 @@ export const buildStrokeRecord = (
     .map((s) => ({ ...s, p: Math.max(0.0001, s.p) }));
 
   const samplesDevice = normalizeSamplesToDevicePx(filtered, cfg);
-  const samplesSmoothed = smoothSamples(samplesDevice, cfg.smoothing);
-  const samples = resample(samplesSmoothed, cfg);
+  //const samplesSmoothed = smoothSamples(samplesDevice, cfg.smoothing);
+  const samples = smoothSamples(samplesDevice, cfg.smoothing);
+  //const samples = densify(samplesSmoothed, cfg);
+  //const samples = densify(samplesDevice, cfg);
+  //const samples = samplesDevice;
 
   const segments: StrokeSegment[] = [];
   const boundsAccum = createEmptyBoundsAccum();
@@ -199,7 +204,7 @@ export const buildStrokeRecord = (
 
       // Skip near-zero segments, but ensure we never drop the terminal point.
       // Some input devices report repeated/stationary samples at stroke end.
-      if (dist(a, b) < 0.001) {
+      if (dist(a, b) < 0.01) {
         if (i === samples.length - 1) {
           const seg: StrokeSegment = {
             a: b,
