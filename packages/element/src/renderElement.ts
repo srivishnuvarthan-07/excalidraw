@@ -452,32 +452,25 @@ const drawElementOnCanvas = (
 
       const polygons = getFreedrawOutlinePolygons(element);
 
-      if (false) {
+      const fillShape = ShapeCache.get(element);
+      if (fillShape) {
+        rc.draw(fillShape);
+      }
+
+      context.fillStyle = element.strokeColor;
+
+      if (polygons.length <= 1) {
+        const path =
+          getFreeDrawPath2D(element) ??
+          (generateFreeDrawShape(element) as Path2D);
+        context.fill(path);
+      } else {
         polygons.forEach((polygon, index) => {
+          // context.fillStyle =
+          //   DEBUG_FREEDRAW_COLORS[index % DEBUG_FREEDRAW_COLORS.length];
           const polygonPath = new Path2D(getSvgPathFromStroke(polygon));
-          context.fillStyle =
-            DEBUG_FREEDRAW_COLORS[index % DEBUG_FREEDRAW_COLORS.length];
           context.fill(polygonPath);
         });
-      } else {
-        const fillShape = ShapeCache.get(element);
-        if (fillShape) {
-          rc.draw(fillShape);
-        }
-
-        context.fillStyle = element.strokeColor;
-
-        if (polygons.length <= 1) {
-          const path =
-            getFreeDrawPath2D(element) ??
-            (generateFreeDrawShape(element) as Path2D);
-          context.fill(path);
-        } else {
-          polygons.forEach((polygon) => {
-            const polygonPath = new Path2D(getSvgPathFromStroke(polygon));
-            context.fill(polygonPath);
-          });
-        }
       }
 
       context.restore();
@@ -1076,8 +1069,6 @@ export function getFreeDrawSvgPath(element: ExcalidrawFreeDrawElement) {
     .filter((path) => path.length > 0)
     .join(" ");
 }
-
-export { getFreedrawOutlinePoints } from "./freedraw";
 
 export function getFreedrawOutlineAsSegments(
   element: ExcalidrawFreeDrawElement,

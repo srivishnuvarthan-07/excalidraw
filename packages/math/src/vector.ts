@@ -160,6 +160,11 @@ export const vectorNormalize = (v: Vector): Vector => {
 export const vectorNormal = (v: Vector): Vector => vector(v[1], -v[0]);
 
 /**
+ * Calculate the left-hand normal of the vector.
+ */
+export const vectorAntiNormal = (v: Vector): Vector => vector(-v[1], v[0]);
+
+/**
  *
  * @param v The vector to rotate
  * @param angle The angle to rotate the vector by in radians
