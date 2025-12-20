@@ -466,8 +466,8 @@ const drawElementOnCanvas = (
         context.fill(path);
       } else {
         polygons.forEach((polygon, index) => {
-          // context.fillStyle =
-          //   DEBUG_FREEDRAW_COLORS[index % DEBUG_FREEDRAW_COLORS.length];
+          context.fillStyle =
+            DEBUG_FREEDRAW_COLORS[index % DEBUG_FREEDRAW_COLORS.length];
           const polygonPath = new Path2D(getSvgPathFromStroke(polygon));
           context.fill(polygonPath);
         });
